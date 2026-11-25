@@ -1,0 +1,26 @@
+{
+  "name": "@local/pstack-dsh",
+  "version": "0.15.48-dsh.1",
+  "private": true,
+  "type": "module",
+  "description": "pstack rigorous agent workflows for DeepSeek Harness — personal port, zero native JS",
+  "license": "MIT",
+  "exports": {
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "pstack",
+    "README.md",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

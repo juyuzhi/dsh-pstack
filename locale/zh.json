@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "pstack-dsh",
+    "description": "pstack 严谨工程工作流（poteto-mode + 22 playbook + 24 原则）的 DeepSeek Harness 移植：62 个技能、poteto-agent / comment-sicko 子代理、多家族模型路由。零原生 JS，纯配置 bundle。"
+  }
+}

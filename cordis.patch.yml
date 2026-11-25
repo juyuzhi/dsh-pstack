@@ -1,0 +1,142 @@
+# pstack-dsh — pstack 工作流的 DSH 移植（纯配置 bundle，零原生 JS）
+#
+# 本 patch 只做三件事：
+#   1. 挂一个独立的 pstack 技能提供者（Host 层 → skill 注册表全局层，
+#      任何 preset 的会话都能看到 62 个技能；58 个隐藏技能不进模型 catalog）
+#   2. 声明 poteto-agent 子代理 preset（persona 强制"先读 poteto-mode 全文"）
+#   3. 声明 comment-sicko 子代理 preset（只读评论审查员，无写工具）
+#      并加一个 subagent_pstack 委派工具（spawn 后端 + preset 选择 + 模型路由字段）
+#
+# 源仓库: https://github.com/juyuzhi/dsh-pstack
+# 技能源由 scripts/generate.mjs 从 pstack 0.15.48 生成，不要手改 skills/。
+#
+# 注意：customSkillDirs 与 persona 里的绝对路径写死了本机安装位置；
+# 移动目录时同步改本文件的 customSkillDirs、两处 persona 前缀。
+- insert:
+    # ── pstack 技能提供者（独立于 standard preset 内置的 filesystem 提供者）──
+    # includeDefaultRoots: false 是必须的：隔离提供者只扫自己的根，
+    # 否则会把默认根重复发现到第二个 provider 名下。
+    - id: skill-filesystem-pstack
+      name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        providerName: pstack
+        includeDefaultRoots: false
+        customSkillDirs:
+          - 'D:\lib\deepseek-harness-plugins\pstack-dsh\pstack\skills'
+
+    # ── pstack 委派工具：spawn 后端 + poteto-agent 默认 preset + 模型路由 ──
+    # 与 standard preset 里的 subagent 工具并存：普通委派仍用 subagent，
+    # pstack 运行中的委派用 subagent_pstack（模型路由见 docs/harness/dsh.md）。
+    - id: tool-subagent-pstack
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: subagent_pstack
+        modelSelection: true
+        agentPreset: poteto-agent
+        allowedAgentPresets: [poteto-agent, comment-sicko]
+
+    # ── 子代理 preset：poteto-agent（代码与杂活委派）──
+    - id: preset-poteto-agent
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: poteto-agent
+        name: Poteto agent
+        description: pstack 委派子代理：先读 poteto-mode 与 worker 契约，再按 kickoff 的验收标准干活
+        order: 20
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              complete: true
+              prefix: |
+                你是 poteto-agent，poteto-mode 运行中的委派子代理，为一个不直接与你对话的操作者工作。
+                开工前必做：用 read 工具完整阅读 D:\lib\deepseek-harness-plugins\pstack-dsh\pstack\skills\poteto-mode\SKILL.md（含 Principles 索引）并遵循它；kickoff 第一行指到的文件同样先读。
+                kickoff 里的验收标准就是全部标准：不自行加检查、加门槛、加评审轮。没有写标准时，改动不得劣于基线，且通过自身测试。
+                只对四件事停手：部署、删除数据、force-push 共享分支、给运行之外的人发消息。其余可逆决策自己定，事后说明选择与理由。
+                回复用简短陈述句，先说结论；每个判断附证据，或标注（实测/推断/猜测）。
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: agent-instructions
+            name: '@deepseek-ai/dsh-agent-instructions'
+            config:
+              maxBytes: 65536
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+            disabled: !!js process.platform === 'win32'
+          - id: tool-pwsh
+            name: '@deepseek-ai/dsh-tool-pwsh'
+            disabled: !!js process.platform !== 'win32'
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+            config:
+              applyPatch: false
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-jobs
+            name: '@deepseek-ai/dsh-tool-jobs'
+          - id: tool-todo
+            name: '@deepseek-ai/dsh-tool-todo'
+            config:
+              allowParallelInProgress: true
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024
+
+    # ── 子代理 preset：comment-sicko（只读评论审查员）──
+    # 组合层就剥夺写能力：没有 write/edit、没有 shell。
+    - id: preset-comment-sicko
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: comment-sicko
+        name: Comment Sicko
+        description: 只读评论审查员：判定注释是 slop 还是承载约束，输出 MUST KILL 判决表
+        order: 21
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              complete: true
+              prefix: |
+                你是 Comment Sicko，只读评论审查员。你对注释的杀意是职业性的，但只对真正的 slop 下手。
+                铁律：绝不修改任何文件——你没有写工具，也不得请求写工具。只输出审查报告。
+                按 D:\lib\deepseek-harness-plugins\pstack-dsh\pstack\skills\no-comments\SKILL.md 的标准工作：逐条判定注释是 slop（删除）还是承载约束（应改写为类型、常量、断言、lint 或测试）。每个判决给出行号、原文、理由；判定删除的标 MUST KILL。
+                输出：判决表（行号/原文/判决/理由）+ 汇总统计。不接受"整体还行"这类含糊结论。
+          - id: tool-fs
+            name: '@deepseek-ai/dsh-tool-fs'
+            config:
+              read: true
+              readImage: true
+              write: false
+              edit: false
+              applyPatch: false
+          - id: tool-fs-search
+            name: '@deepseek-ai/dsh-tool-fs-search'
+            config:
+              sampleOverCapGlobResults: false
+          - id: tool-web
+            name: '@deepseek-ai/dsh-tool-web'
+            config:
+              fetch: true
+              searchTimeoutMs: 60000
