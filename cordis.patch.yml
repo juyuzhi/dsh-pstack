@@ -1,14 +1,15 @@
-# pstack-dsh — pstack 工作流的 DSH 移植（纯配置 bundle，零原生 JS）
+# pstack-dsh — pstack 工作流的 DeepSeek Harness 移植（纯配置 bundle，零原生 JS）
 #
-# 本 patch 只做三件事：
+# 本 patch 只做四件事：
 #   1. 挂一个独立的 pstack 技能提供者（Host 层 → skill 注册表全局层，
 #      任何 preset 的会话都能看到 62 个技能；61 个隐藏技能不进模型 catalog）
 #   2. 声明 poteto-agent 子代理 preset（persona 强制"先读 poteto-mode 全文"）
 #   3. 声明 comment-sicko 子代理 preset（只读评论审查员，无写工具）
-#      并加一个 subagent_pstack 委派工具（spawn 后端 + preset 选择 + 模型路由字段）
+#   4. 加一个 subagent_pstack 委派工具（spawn 后端 + preset 选择 + 模型路由字段）
 #
-# 源仓库: https://github.com/juyuzhi/dsh-pstack
 # 技能树由 scripts/generate.mjs 从 pstack 0.15.48 生成，不要手改 pstack/ 整棵生成树。
+# benny 自动化包随树分发，但只是休眠参考文件：DSH 没有 Cursor Automations，
+# 也没有 Slack 触发，它不会注册成技能，也不会运行。
 #
 # 注意：customSkillDirs 与 persona 里的绝对路径写死了本机安装位置；
 # 移动目录时同步改本文件的 customSkillDirs、两处 persona 前缀。

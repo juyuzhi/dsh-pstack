@@ -7,6 +7,7 @@
  *
  * 源：  <SRC>/pstack/skills                 59 个技能（上游 pstack 0.15.48）
  *       <SRC>/cursor-team-kit/skills        vendored 3 个（deslop/control-ui/control-cli）
+ *       <SRC>/pstack/automations            benny 自动化包，休眠参考，不注册
  *       ./docs/harness/dsh.md               DSH 适配表（本仓库维护，生成时复制进树）
  *       ./agents/                           DSH 版 agent 定义（替代上游 Cursor agent 文件）
  *       ./overrides/setup-pstack.SKILL.md   DSH 原生 setup（catalog 里唯一可见技能）
@@ -15,6 +16,7 @@
  *         pstack/agents/*.md                2 个 DSH agent 定义
  *         pstack/docs/guide/…              上游指南 + 每篇 DSH 覆盖说明
  *         pstack/docs/harness/dsh.md       DSH 适配表（源：docs/harness/dsh.md）
+ *         pstack/automations/benny/…       benny 休眠参考包，不注册
  *         pstack/README.md, pstack/LICENSE
  *
  * 移植规则（上游正文零改动，升级 diff 干净）：
@@ -45,6 +47,7 @@ const HIDE = 'disable-model-invocation: true'
 const COMMAND = 'node scripts/generate.mjs'
 const OVERRIDDEN_SKILL = 'setup-pstack'
 const AGENT_DOCS = ['poteto-agent.md', 'comment-sicko.md']
+const AUTOMATIONS_SRC = join(PSTACK, 'automations')
 
 const ADAPTER_LINE =
   'In DeepSeek Harness, read [the DSH adapter](../../docs/harness/dsh.md) once per session before you follow this skill. ' +
@@ -58,6 +61,11 @@ const GUIDE_LINE =
 const README_LINE =
   'In DeepSeek Harness, read [the DSH adapter](docs/harness/dsh.md) first. This README describes the upstream Cursor plugin; ' +
   'this port installs as a DSH bundle, and the adapter maps commands, paths, models, and Cursor-only features to DSH.'
+
+const BENNY_LINE =
+  'In DeepSeek Harness, this pack is included as dormant reference only. DSH has no Cursor Automations or Slack trigger, ' +
+  'so these files are not registered as skills and do not run. Use the workflow text as a manual checklist, and read ' +
+  '[the DSH adapter](../../docs/harness/dsh.md) before adapting anything.'
 
 // ── 上游 TERMS 检测（判定"哪些技能用了 Cursor 名字、需要适配行"）──────────
 const TERMS = [
@@ -145,6 +153,7 @@ const put = (absDir, prefix) => {
 }
 for (const skill of skills) put(sources.get(skill), `skills/${skill}`)
 put(join(PSTACK, 'docs', 'guide'), 'docs/guide')
+if (existsSync(AUTOMATIONS_SRC)) put(AUTOMATIONS_SRC, 'automations')
 files.set('README.md', readFileSync(join(PSTACK, 'README.md')))
 files.set('LICENSE', readFileSync(join(PSTACK, 'LICENSE')))
 files.set('docs/harness/dsh.md', readFileSync(ADAPTER_SRC))
@@ -181,7 +190,14 @@ const injectAfterH1 = (text, line) =>
   /^# /m.test(text) ? text.replace(/^(# .*)\r?\n+/m, `$1\n\n${line}\n\n`) : text
 let covered = 0
 for (const [path, entry] of [...files]) {
-  const line = path === 'README.md' ? README_LINE : /^docs\/guide\/.*\.md$/.test(path) ? GUIDE_LINE : null
+  const line =
+    path === 'README.md'
+      ? README_LINE
+      : /^docs\/guide\/.*\.md$/.test(path)
+        ? GUIDE_LINE
+        : /^automations\/benny\/(README|FOR_AGENTS)\.md$/.test(path)
+          ? BENNY_LINE
+          : null
   if (!line) continue
   files.set(path, Buffer.from(injectAfterH1(entry.toString('utf8'), line)))
   covered += 1
@@ -208,6 +224,7 @@ for (const [path, entry] of files) {
 
 // 4) 校验：树内 .md 链接无悬空；frontmatter name = 目录名；kebab-case；有 description
 const problems = []
+const automationFiles = [...files.keys()].filter((path) => path.startsWith('automations/')).length
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 for (const [path, entry] of files) {
   if (!path.endsWith('.md')) continue
@@ -226,6 +243,9 @@ for (const [path, entry] of files) {
 }
 for (const name of AGENT_DOCS) {
   if (!files.has(`agents/${name}`)) problems.push(`agents/${name} missing from the generated tree`)
+}
+for (const path of ['automations/benny/README.md', 'automations/benny/FOR_AGENTS.md']) {
+  if (!files.has(path)) problems.push(`${path} missing from the generated tree`)
 }
 const setupBody = files.get(`skills/${OVERRIDDEN_SKILL}/SKILL.md`).toString('utf8')
 if (/^disable-model-invocation:/m.test(setupBody)) {
@@ -255,7 +275,7 @@ if (process.argv.includes('--check')) {
   }
   console.log(
     `pstack/ up to date (${files.size} files, ${skills.length} skills, ${wrapped} adapter lines, ` +
-      `${covered} DSH coverage blocks, ${AGENT_DOCS.length} agent docs).`,
+      `${covered} DSH coverage blocks, ${AGENT_DOCS.length} agent docs, ${automationFiles} automation files).`,
   )
 } else {
   rmSync(OUT, { recursive: true, force: true })
@@ -266,7 +286,8 @@ if (process.argv.includes('--check')) {
   }
   console.log(
     `generated pstack/: ${skills.length} skills (${VENDORED.length} vendored), ${files.size} files, ` +
-      `${wrapped} adapter lines, ${covered} DSH coverage blocks, ${AGENT_DOCS.length} agent docs.`,
+      `${wrapped} adapter lines, ${covered} DSH coverage blocks, ${AGENT_DOCS.length} agent docs, ` +
+      `${automationFiles} automation files.`,
   )
   console.log('next: git add pstack && git commit')
 }

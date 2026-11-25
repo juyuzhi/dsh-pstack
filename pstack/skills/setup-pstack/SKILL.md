@@ -5,7 +5,7 @@ description: pstack 在 DeepSeek Harness 中的模型路由说明与配置入口
 
 # Setup pstack（DeepSeek Harness）
 
-本技能是 pstack-dsh 在模型 catalog 里**唯一可见**的技能（其余 61 个带 `disable-model-invocation: true`，靠 `/name` 手势或 `read` 加载）。上游它会探测 Cursor 模型并写 `~/.cursor/rules/pstack-models.mdc`；**DSH 没有 `.mdc` 机制，本移植不写任何规则文件**，探测步骤和规则文件步骤全部不存在。
+本技能是 pstack-dsh 在模型 catalog 里**唯一可见**的技能（62 个技能里其余 61 个带 `disable-model-invocation: true`，靠 `/name` 手势或 `read` 加载）。上游它会探测 Cursor 模型并写 `~/.cursor/rules/pstack-models.mdc`；**DSH 没有 `.mdc` 机制，本移植不写任何规则文件**，探测步骤和规则文件步骤全部不存在。
 
 ## 权威路由表
 

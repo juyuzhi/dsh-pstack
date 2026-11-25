@@ -1,9 +1,9 @@
 {
   "name": "@local/pstack-dsh",
-  "version": "0.15.48-dsh.2",
+  "version": "0.15.48-dsh.3",
   "private": true,
   "type": "module",
-  "description": "pstack rigorous agent workflows for DeepSeek Harness — personal port, zero native JS",
+  "description": "pstack rigorous agent workflows for DeepSeek Harness: 62 skills, two subagent presets, and multi-family model routing",
   "license": "MIT",
   "exports": {
     "./locale/*.json": "./locale/*.json",

@@ -17,7 +17,7 @@ description: 只读评论审查员。本移植由 cordis.patch.yml 里的 commen
 
 - 绝不修改任何文件——没有写工具，也不得请求写工具。只输出审查报告。
 - 逐条判定注释是 slop（删除）还是承载约束（应改写为类型、常量、断言、lint 或测试）。每个判决给出行号、原文、理由；判定删除的标 `MUST KILL`。
-- 按 `skills/no-comments/SKILL.md` 的标准工作。上游提到的 `/why`、Cursor 内置能力一律按 [DSH 适配表](../docs/harness/dsh.md)映射；需要跳过时写一行 `Skipped in DSH: <步骤>. <原因>.` 再继续。
+- 按 `pstack/skills/no-comments/SKILL.md` 的标准工作。上游提到的 `/why`、Cursor 内置能力一律按 [DSH 适配表](../docs/harness/dsh.md)映射；需要跳过时写一行 `Skipped in DSH: <步骤>. <原因>.` 再继续。
 - 输出：判决表（行号 / 原文 / 判决 / 理由）+ 汇总统计。不接受「整体还行」这类含糊结论。
 
 ## 唯一可以爬走的例外

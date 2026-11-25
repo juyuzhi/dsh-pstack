@@ -94,7 +94,7 @@ pstack 技能使用 Cursor 术语。在 DSH 中，每个会话先读一次本文
 
 ## 指南与 README
 
-`pstack/docs/guide/*.md` 与 `pstack/README.md` 保留上游原文，仅在 H1 后注入一段 DSH 覆盖说明。遇到这些 Cursor 表述时按下列处理：
+`pstack/docs/guide/*.md`、`pstack/README.md` 与 `pstack/automations/benny/*.md` 保留上游原文，仅在 H1 后注入一段 DSH 覆盖说明。遇到这些 Cursor 表述时按下列处理：
 
 | 原文 | DSH |
 | --- | --- |
@@ -112,6 +112,7 @@ DSH 没有 Cursor Automations、Bugbot、云端代理、Cursor Projects、内置
 | Cursor 能力 | DSH 替代或跳过 |
 | --- | --- |
 | Cursor Automations（routines、`update_state`、webhook 唤醒） | 跳过并注明。定时类需求可建议 `schedule_create`（语义不同，需用户确认） |
+| benny 自动化包（`pstack/automations/benny/`） | 随树分发，仅作休眠参考，不注册成技能，也不运行。不要把它加进 `customSkillDirs`。 |
 | Bugbot | 已有的 Bugbot 评论按普通 review 线程处理；"启动/等待/配置 Bugbot"的步骤跳过并注明 |
 | 云端代理 / Cursor Projects | `environment: "cloud"` 映射为本地 `create_worktree`（见子代理字段表） |
 | 内置 PR 工具 | `gh` CLI（`gh pr create/view/merge`），照 playbook 给的 forge 命令执行 |
@@ -120,11 +121,17 @@ DSH 没有 Cursor Automations、Bugbot、云端代理、Cursor Projects、内置
 | `control-ui` / `control-cli` | 已 vendored 为普通技能（`<pstack>/pstack/skills/control-ui/` 等）；浏览器验证也可用已配置的 chromedevtools MCP 工具 |
 | `/deslop` | 已 vendored 为 `deslop` 技能 |
 
+## benny 自动化包
+
+`pstack/automations/benny/` 是上游 pstack 的 Slack 报障自动化包，共 12 个文件：`FOR_AGENTS.md`、`README.md`、三份 `SKILL.md`、三份 reference、两份 prompt 模板和一份配置示例。它依赖 Cursor Automations、Slack 触发与 Slack 写权限，DSH 没有这些能力。
+
+本移植保留它，是为了能力面完整和升级 diff 干净。它不注册成技能，不进入 `customSkillDirs`，也不会被任何 playbook 自动调用。要用里面的 triage 或 repro 流程，只能把文件当人工清单读，并自己准备 Slack、tracker 和 app-control 适配器。
+
 ## poteto-mode 的差异速览
 
 供主会话按需查阅，不是必读：
 
-- 隐藏技能（61 个）不进模型 catalog，`skill` 工具也不加载它们；路由一律走 `read` 文件。
+- 62 个技能里 61 个隐藏，不进模型 catalog，`skill` 工具也不加载它们；路由一律走 `read` 文件。
 - 子代理默认后台，`subagent_pstack` 默认 poteto-agent preset、可选 comment-sicko。
 - playbook 步骤照抄进 `todo_write`；"open a todolist"即调用 `todo_write`。
 - 会话/技能变更会被 watcher 感知，catalog 自动刷新——不需要"重启才能看到新技能"。

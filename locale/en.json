@@ -1,6 +1,7 @@
 {
   "meta": {
     "title": "pstack-dsh",
-    "description": "pstack rigorous agent workflows (poteto-mode + 22 playbooks + 24 principles) ported to DeepSeek Harness: 62 skills, poteto-agent / comment-sicko subagent presets, multi-family model routing. Zero native JS, configuration-only bundle."
+    "description": "The full pstack engineering workflow for DeepSeek Harness: poteto-mode, 22 playbooks, 24 principles, 62 skills, two subagent presets, and multi-family model routing. A configuration-only bundle with no native JavaScript.",
+    "detail": "docs/DETAIL.md"
   }
 }
