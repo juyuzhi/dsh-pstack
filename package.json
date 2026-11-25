@@ -1,6 +1,6 @@
 {
   "name": "@local/pstack-dsh",
-  "version": "0.15.48-dsh.1",
+  "version": "0.15.48-dsh.2",
   "private": true,
   "type": "module",
   "description": "pstack rigorous agent workflows for DeepSeek Harness — personal port, zero native JS",
@@ -15,6 +15,9 @@
     "locale/*.json",
     "icon.svg",
     "pstack",
+    "agents",
+    "overrides",
+    "docs",
     "README.md",
     "THIRD_PARTY_NOTICES.md"
   ],

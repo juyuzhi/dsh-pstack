@@ -1,5 +1,8 @@
 # Recipes and pitfalls
 
+In DeepSeek Harness, read [the DSH adapter](../harness/dsh.md) first. This guide was written for Cursor: the adapter maps its `/add-plugin`, `.cursor/…` paths, model slugs, Custom Mode, and `/loop` to DSH. Install this port as a DSH bundle (see the repository README), not with a plugin command.
+
+
 Prompts worth copying, then the mistakes everyone makes once. Swap in your own paths and finish conditions. The recipes are deliberately informal. That's how they get typed in practice, and the skills read intent fine.
 
 ![She tastes a finished dish while robots cook from a recipe box, with pinned cards reading /how, /tdd, and /loop above the counter.](./images/recipes.jpg)

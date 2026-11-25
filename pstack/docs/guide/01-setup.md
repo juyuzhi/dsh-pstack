@@ -1,5 +1,8 @@
 # Set up pstack
 
+In DeepSeek Harness, read [the DSH adapter](../harness/dsh.md) first. This guide was written for Cursor: the adapter maps its `/add-plugin`, `.cursor/…` paths, model slugs, Custom Mode, and `/loop` to DSH. Install this port as a DSH bundle (see the repository README), not with a plugin command.
+
+
 In this page you install the plugin, pick which models pstack uses, and run your first task. Setup is one command plus a short conversation.
 
 ## Install the plugin

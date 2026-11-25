@@ -1,5 +1,8 @@
 # Make it yours
 
+In DeepSeek Harness, read [the DSH adapter](../harness/dsh.md) first. This guide was written for Cursor: the adapter maps its `/add-plugin`, `.cursor/…` paths, model slugs, Custom Mode, and `/loop` to DSH. Install this port as a DSH bundle (see the repository README), not with a plugin command.
+
+
 poteto-mode is one person's style. The playbooks, routing, and model roles underneath it work just as well with yours. This page covers generating a personal mode, capturing lessons from a session, fixing the repo so agents stop repeating mistakes, authoring a focused skill, and testing a skill change before you trust it.
 
 Start smaller than you think. You don't need many skills on day one, or even this whole plugin. Prompt plainly, watch where agents fail, and add a skill or a check when the same failure shows up twice.

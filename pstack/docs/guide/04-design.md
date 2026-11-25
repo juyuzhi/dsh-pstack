@@ -1,5 +1,8 @@
 # Design before you write code
 
+In DeepSeek Harness, read [the DSH adapter](../harness/dsh.md) first. This guide was written for Cursor: the adapter maps its `/add-plugin`, `.cursor/…` paths, model slugs, Custom Mode, and `/loop` to DSH. Install this port as a DSH bundle (see the repository README), not with a plugin command.
+
+
 One attempt at a hard design locks in the first shape the model thought of. `/architect` settles types and boundaries before implementation. `/arena` runs several attempts at the same brief and merges the best parts. `/interrogate` has other models try to break the result. When the job is coverage rather than design synthesis, `/swarm` fans out slices or races and aggregates their results.
 
 The two most common design mistakes are taking the agent's first design and polishing a plan that no code has tested. This page fixes both. You plan through code. Prototypes answer the open questions, a README or tutorial sets the target, and the written plan comes last.

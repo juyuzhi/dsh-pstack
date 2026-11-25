@@ -1,6 +1,8 @@
 # pstack 在 DeepSeek Harness (DSH) 中的适配表
 
-pstack 技能使用 Cursor 术语。在 DSH 中，每个会话先读一次本文件，然后用下面的表把技能里的 Cursor 名字映射为 DSH 等价物。`<pstack>` 指 pstack-dsh 安装目录（本文件的 `../../..`）。若某个 Cursor 字段在表中没有对应行，丢弃它并在回复中说明一行。绝不把工具 schema 会拒绝的字段或值传给工具。
+pstack 技能使用 Cursor 术语。在 DSH 中，每个会话先读一次本文件，然后用下面的表把技能里的 Cursor 名字映射为 DSH 等价物。`<pstack>` 指 pstack-dsh 的安装目录（含 `cordis.patch.yml`、`pstack/`、`docs/` 的那一层；本机为 `D:\lib\deepseek-harness-plugins\pstack-dsh`）。技能树固定在 `<pstack>/pstack/skills`，由 `cordis.patch.yml` 的 `customSkillDirs` 声明。若某个 Cursor 字段在表中没有对应行，丢弃它并在回复中说明一行。绝不把工具 schema 会拒绝的字段或值传给工具。
+
+生成器会在每个技能的 H1 后注入一行本文件的指引，在每篇指南与上游 README 的 H1 后注入一段 DSH 覆盖说明；上游正文保持原样，便于跟进上游版本。
 
 ## 工具映射
 
@@ -27,6 +29,19 @@ pstack 技能使用 Cursor 术语。在 DSH 中，每个会话先读一次本文
 | `readonly: true` | 组合层已剥夺 comment-sicko 的写工具；其他场景在 kickoff 里写"只读"约束 |
 | `environment: "cloud"` / `cloud_base_branch` | 无云端代理。本地替代：kickoff 里让子代理先用 `create_worktree` 建独立 worktree（记得指名基线分支），把 `cloud_base_branch` 的值写成 worktree 的 from 参数 |
 | `interrupt` 一个子代理 | `send_message` 说明终止理由，或经父会话处理；不要反复 spawn 代替中断 |
+
+## Agent 定义
+
+上游的 `agents/poteto-agent.md` 与 `agents/comment-sicko.md` 是 Cursor 的 subagent 定义文件（frontmatter 带 `model: claude-opus-5-5-xhigh-fast`，正文让子代理搜索 `~/.cursor/plugins/`）。DSH 不加载这种文件，两个角色由 `cordis.patch.yml` 里的 **Agent Preset** 实现：
+
+| 上游 | DSH |
+| --- | --- |
+| `subagent_type: "poteto-agent"` | `preset-poteto-agent`；`subagent_pstack` 默认选中，`agent_preset: "poteto-agent"` |
+| `subagent_type: "comment-sicko"` | `preset-comment-sicko`；`agent_preset: "comment-sicko"`，组合层只挂只读工具，没有 `write` / `edit` / shell |
+| `model: claude-opus-5-5-xhigh-fast` | 无 `model:` 字段；路由见"模型路由"，调用时传 `provider` + `model`（+ `reasoning_effort`） |
+| 搜索 `~/.cursor/plugins/` 找 `skills/poteto-mode/SKILL.md` | `<pstack>/pstack/skills/poteto-mode/SKILL.md`，由 `customSkillDirs` 固定，persona 里写绝对路径 |
+
+生成树里 `<pstack>/pstack/agents/*.md` 是本仓库维护的 **DSH 版说明文件**（不是可加载的 agent 定义），内容已去掉 Cursor slug 与 `~/.cursor/plugins/` 搜索逻辑。上游 README 的 `./agents/*.md` 链接因此在树内有效，不再被改写到 GitHub 上的 Cursor 原文。
 
 ## 模型路由
 
@@ -57,7 +72,13 @@ pstack 技能使用 Cursor 术语。在 DSH 中，每个会话先读一次本文
 
 ## setup-pstack
 
-上游的 `/setup-pstack` 探测 Cursor 模型并写规则文件。本移植**跳过该技能**：模型路由已写死在上表与 `cordis.patch.yml`。用户说"配置模型"时，回答路由表内容与"在任务里点名即可覆盖"，不生成任何文件。
+上游会探测 Cursor 模型并写 `~/.cursor/rules/pstack-models.mdc`。本移植用仓库维护的 **DSH 原生正文整体替换**了这个技能（它是 catalog 里唯一可见技能）：
+
+- 不探测模型、不写任何规则文件（DSH 没有 `.mdc` 机制）；
+- 把上面的路由表作为唯一权威，说明"用户点名 > 表默认 > 继承父模型"；
+- 说明三种配置做法：任务里点名、改本路由表、把新模型加进 `subagent-model-selection-settings` 白名单（需新开会话）。
+
+用户说"配置模型"时按该技能回答即可，不要执行上游的探测或写文件步骤。
 
 ## 路径映射
 
@@ -66,9 +87,23 @@ pstack 技能使用 Cursor 术语。在 DSH 中，每个会话先读一次本文
 | `.cursor/skills/`, `~/.cursor/skills/` | `<项目>/.dsh/skills/`（项目级）或 `~/.dsh/skills/`（用户级） |
 | `~/.cursor/plugins/`, `.cursor-plugin/plugin.json` | DSH Plugins 页安装的 bundle；本包在 `D:\lib\deepseek-harness-plugins\pstack-dsh` |
 | `~/.cursor/rules/*.mdc` 常驻规则 | `~/.dsh/AGENTS.md` 或项目 `AGENTS.md`。DSH 不读 `.mdc` |
+| `agents/poteto-agent.md`, `agents/comment-sicko.md` | `<pstack>/pstack/agents/*.md`（DSH 版说明）；实际角色是 `cordis.patch.yml` 的两个 preset |
 | pstack 技能正文里的 `https://github.com/cursor/plugins/blob/main/pstack/<path>` | 若 `<pstack>/pstack/<path>` 存在则读本地副本，否则才 fetch |
 | 会话记录 `~/.cursor/projects/<slug>/agent-transcripts/` | DSH 会话日志在 `~/.dsh/sessions/<workdir-slug>/session-*.jsonl.zstd`；跨会话检索用 `session_search` 工具 |
 | `.cursor/automations/benny/` | 不存在，见"Cursor 专属功能" |
+
+## 指南与 README
+
+`pstack/docs/guide/*.md` 与 `pstack/README.md` 保留上游原文，仅在 H1 后注入一段 DSH 覆盖说明。遇到这些 Cursor 表述时按下列处理：
+
+| 原文 | DSH |
+| --- | --- |
+| `/add-plugin pstack` | 装 bundle：`dsh plugin --profile desktop add <pstack>`，或 DSH Web → Plugins → Add plugin → 本地目录 |
+| `.cursor/skills/verify-<app>/` | `<项目>/.dsh/skills/verify-<app>/` |
+| `~/.cursor/rules/pstack-models.mdc` | 不存在，见"模型路由"与"setup-pstack" |
+| Option+Enter / Alt+Enter 常驻 Custom Mode | 无常驻；每个任务开始敲 `/poteto-mode`，同一会话内自然延续 |
+| `/loop` | `create_goal` 近似（跨轮推进），或 `schedule_create`（定时，语义不同，需用户确认） |
+| 上游 README 的 `/plugin …` 与 marketplace 说明 | 忽略，只用 DSH bundle 安装 |
 
 ## Cursor 专属功能（跳过规则）
 
@@ -89,7 +124,7 @@ DSH 没有 Cursor Automations、Bugbot、云端代理、Cursor Projects、内置
 
 供主会话按需查阅，不是必读：
 
-- 隐藏技能（58 个）不进模型 catalog，`skill` 工具也不加载它们；路由一律走 `read` 文件。
+- 隐藏技能（61 个）不进模型 catalog，`skill` 工具也不加载它们；路由一律走 `read` 文件。
 - 子代理默认后台，`subagent_pstack` 默认 poteto-agent preset、可选 comment-sicko。
 - playbook 步骤照抄进 `todo_write`；"open a todolist"即调用 `todo_write`。
 - 会话/技能变更会被 watcher 感知，catalog 自动刷新——不需要"重启才能看到新技能"。

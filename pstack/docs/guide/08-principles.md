@@ -1,5 +1,8 @@
 # Steer with principle names
 
+In DeepSeek Harness, read [the DSH adapter](../harness/dsh.md) first. This guide was written for Cursor: the adapter maps its `/add-plugin`, `.cursor/…` paths, model slugs, Custom Mode, and `/loop` to DSH. Install this port as a DSH bundle (see the repository README), not with a plugin command.
+
+
 pstack ships 24 principles as individual skills. `/poteto-mode` reads their index at the start of every multi-step task, applies the ones the task triggers, and names each applied principle in its reply along with the decision it changed.
 
 You don't invoke principles. You use their names to steer. Each name points at a complete rule the agent has already read, so one phrase redirects the work more precisely than a paragraph of instructions.

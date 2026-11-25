@@ -3,25 +3,30 @@
  * pstack-dsh 生成器：从本地 cursor/plugins 镜像生成 DSH 技能树。
  *
  * 用法：node scripts/generate.mjs [--check]
- *   --check  只校验已生成树是否与源同步（CI 用），不写文件。
+ *   --check  只校验已生成树是否与源同步（CI / 本机用），不写文件。
  *
- * 源：  <SRC>/pstack/skills            59 个技能（上游 pstack 0.15.48）
- *       <SRC>/cursor-team-kit/skills   vendored 3 个（deslop/control-ui/control-cli）
- *       ./docs/harness/dsh.md          DSH 适配表（本仓库维护，生成时复制进树）
- * 出：  ./pstack/  ← 整个目录都是生成物，不要手改；重新生成本目录会被清空重建
- *         pstack/skills/<name>/SKILL.md   62 个技能
- *         pstack/docs/guide/…             上游指南（技能正文链接指向它）
- *         pstack/docs/harness/dsh.md      DSH 适配表（源：docs/harness/dsh.md）
+ * 源：  <SRC>/pstack/skills                 59 个技能（上游 pstack 0.15.48）
+ *       <SRC>/cursor-team-kit/skills        vendored 3 个（deslop/control-ui/control-cli）
+ *       ./docs/harness/dsh.md               DSH 适配表（本仓库维护，生成时复制进树）
+ *       ./agents/                           DSH 版 agent 定义（替代上游 Cursor agent 文件）
+ *       ./overrides/setup-pstack.SKILL.md   DSH 原生 setup（catalog 里唯一可见技能）
+ * 出：  ./pstack/  ← 生成树，随仓库分发；重新生成会清空重建
+ *         pstack/skills/<name>/SKILL.md    62 个技能
+ *         pstack/agents/*.md                2 个 DSH agent 定义
+ *         pstack/docs/guide/…              上游指南 + 每篇 DSH 覆盖说明
+ *         pstack/docs/harness/dsh.md       DSH 适配表（源：docs/harness/dsh.md）
  *         pstack/README.md, pstack/LICENSE
  *
- * 移植规则（结构对齐上游 generate-pstack-harness-trees.mjs）：
+ * 移植规则（上游正文零改动，升级 diff 干净）：
  *   1. 用到 Cursor 名字的技能，SKILL.md 的 H1 后注入一行 DSH 适配指引。
- *   2. 指向上游 pstack/ 树外文件的相对链接，重写为 GitHub main 链接。
- *   3. 3 个 vendored 技能追加 disable-model-invocation: true
- *      （上游面向 Cursor 自动触发；DSH 改为仅手动 /name 调用）。
- *   4. 校验：树内 .md 相对链接无悬空；frontmatter name = 目录名（kebab-case ≤64）。
+ *   2. 每篇指南与上游 README 的 H1 后注入 DSH 覆盖说明。
+ *   3. 指向上游 pstack/ 树外文件的相对链接，重写为 GitHub main 链接。
+ *   4. 3 个 vendored 技能追加 disable-model-invocation: true。
+ *   5. setup-pstack 用 DSH 原生正文整体覆盖（不探测模型、不写 .mdc 规则文件）。
+ *   6. 校验：树内 .md 相对链接无悬空；frontmatter name = 目录名；
+ *      setup-pstack 保持 model-invocable；两个 agent 定义齐全。
  */
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, posix, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -31,15 +36,28 @@ const SRC = 'D:\\笔记\\plugins'
 const PSTACK = join(SRC, 'pstack')
 const OUT = join(ROOT, 'pstack')
 const ADAPTER_SRC = join(ROOT, 'docs', 'harness', 'dsh.md')
+const AGENTS_SRC = join(ROOT, 'agents')
+const OVERRIDES_SRC = join(ROOT, 'overrides')
 const GITHUB = 'https://github.com/cursor/plugins'
 const LINK = /\]\(([^)\s]+)\)/g
 const VENDORED = ['deslop', 'control-ui', 'control-cli']
 const HIDE = 'disable-model-invocation: true'
 const COMMAND = 'node scripts/generate.mjs'
+const OVERRIDDEN_SKILL = 'setup-pstack'
+const AGENT_DOCS = ['poteto-agent.md', 'comment-sicko.md']
 
 const ADAPTER_LINE =
   'In DeepSeek Harness, read [the DSH adapter](../../docs/harness/dsh.md) once per session before you follow this skill. ' +
   'It maps the Cursor names in pstack skills to DSH tools, models, and paths.'
+
+const GUIDE_LINE =
+  'In DeepSeek Harness, read [the DSH adapter](../harness/dsh.md) first. This guide was written for Cursor: ' +
+  'the adapter maps its `/add-plugin`, `.cursor/…` paths, model slugs, Custom Mode, and `/loop` to DSH. ' +
+  'Install this port as a DSH bundle (see the repository README), not with a plugin command.'
+
+const README_LINE =
+  'In DeepSeek Harness, read [the DSH adapter](docs/harness/dsh.md) first. This README describes the upstream Cursor plugin; ' +
+  'this port installs as a DSH bundle, and the adapter maps commands, paths, models, and Cursor-only features to DSH.'
 
 // ── 上游 TERMS 检测（判定"哪些技能用了 Cursor 名字、需要适配行"）──────────
 const TERMS = [
@@ -76,9 +94,15 @@ function walk(dir) {
   })
 }
 
-if (!existsSync(ADAPTER_SRC)) {
-  console.error('FAIL docs/harness/dsh.md is missing; author the adapter before generating.')
-  process.exit(1)
+for (const [label, path] of [
+  ['docs/harness/dsh.md', ADAPTER_SRC],
+  ['agents/', AGENTS_SRC],
+  [`overrides/${OVERRIDDEN_SKILL}.SKILL.md`, join(OVERRIDES_SRC, `${OVERRIDDEN_SKILL}.SKILL.md`)],
+]) {
+  if (!existsSync(path)) {
+    console.error(`FAIL ${label} is missing; the DSH port needs it (${path}).`)
+    process.exit(1)
+  }
 }
 
 // ── 收集技能源 ─────────────────────────────────────────────────────────────
@@ -125,9 +149,21 @@ files.set('README.md', readFileSync(join(PSTACK, 'README.md')))
 files.set('LICENSE', readFileSync(join(PSTACK, 'LICENSE')))
 files.set('docs/harness/dsh.md', readFileSync(ADAPTER_SRC))
 
+// DSH 版 agent 定义：替代上游 Cursor agent 文件（含 model slug / ~/.cursor/plugins/）
+for (const name of readdirSync(AGENTS_SRC).filter((n) => n.endsWith('.md'))) {
+  files.set(`agents/${name}`, readFileSync(join(AGENTS_SRC, name)))
+}
+
+// setup-pstack：DSH 原生正文（唯一可见技能），整体覆盖上游的探测 + .mdc 规则步骤
+files.set(
+  `skills/${OVERRIDDEN_SKILL}/SKILL.md`,
+  readFileSync(join(OVERRIDES_SRC, `${OVERRIDDEN_SKILL}.SKILL.md`)),
+)
+
 // 1) 注入适配行；vendored 技能加 disable-model-invocation
 let wrapped = 0
 for (const skill of skills) {
+  if (skill === OVERRIDDEN_SKILL) continue // DSH 原生正文，不需要适配行
   const path = `skills/${skill}/SKILL.md`
   let next = files.get(path).toString('utf8')
   if (classes.get(skill).uses.size > 0 && /^# /m.test(next)) {
@@ -140,7 +176,18 @@ for (const skill of skills) {
   files.set(path, Buffer.from(next))
 }
 
-// 2) 重写越出 pstack/ 的相对链接 → GitHub main；树内存在的保持相对
+// 2) 每篇指南与上游 README 注入 DSH 覆盖说明（正文不动，保持与上游可 diff）
+const injectAfterH1 = (text, line) =>
+  /^# /m.test(text) ? text.replace(/^(# .*)\r?\n+/m, `$1\n\n${line}\n\n`) : text
+let covered = 0
+for (const [path, entry] of [...files]) {
+  const line = path === 'README.md' ? README_LINE : /^docs\/guide\/.*\.md$/.test(path) ? GUIDE_LINE : null
+  if (!line) continue
+  files.set(path, Buffer.from(injectAfterH1(entry.toString('utf8'), line)))
+  covered += 1
+}
+
+// 3) 重写越出 pstack/ 的相对链接 → GitHub main；树内存在的保持相对
 const resolvePstack = (from, href) => {
   const target = href.replace(/[#?].*/, '')
   if (!target || /^[a-z][a-z0-9+.-]*:/i.test(target)) return undefined
@@ -159,7 +206,7 @@ for (const [path, entry] of files) {
   files.set(path, Buffer.from(text))
 }
 
-// 3) 校验：树内 .md 链接无悬空；frontmatter name = 目录名；kebab-case；有 description
+// 4) 校验：树内 .md 链接无悬空；frontmatter name = 目录名；kebab-case；有 description
 const problems = []
 const SKILL_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 for (const [path, entry] of files) {
@@ -176,6 +223,16 @@ for (const [path, entry] of files) {
     if (!SKILL_NAME.test(m[1]) || m[1].length > 64) problems.push(`skills/${m[1]}: not kebab-case ≤64 chars`)
     if (!/^description:[ \t]*\S/m.test(fm)) problems.push(`skills/${m[1]}: missing description`)
   }
+}
+for (const name of AGENT_DOCS) {
+  if (!files.has(`agents/${name}`)) problems.push(`agents/${name} missing from the generated tree`)
+}
+const setupBody = files.get(`skills/${OVERRIDDEN_SKILL}/SKILL.md`).toString('utf8')
+if (/^disable-model-invocation:/m.test(setupBody)) {
+  problems.push(`${OVERRIDDEN_SKILL} must stay model-invocable (the only visible skill)`)
+}
+if (!/^name: setup-pstack$/m.test(setupBody)) {
+  problems.push(`${OVERRIDDEN_SKILL} override frontmatter name mismatch`)
 }
 if (problems.length > 0) {
   for (const p of problems) console.error(`FAIL ${p}`)
@@ -196,7 +253,10 @@ if (process.argv.includes('--check')) {
     console.error(`pstack/ out of date (${drifted.length} files). Run \`${COMMAND}\` and commit.`)
     process.exit(1)
   }
-  console.log(`pstack/ up to date (${files.size} files, ${skills.length} skills, ${wrapped} adapter lines).`)
+  console.log(
+    `pstack/ up to date (${files.size} files, ${skills.length} skills, ${wrapped} adapter lines, ` +
+      `${covered} DSH coverage blocks, ${AGENT_DOCS.length} agent docs).`,
+  )
 } else {
   rmSync(OUT, { recursive: true, force: true })
   for (const [path, bytes] of files) {
@@ -204,6 +264,9 @@ if (process.argv.includes('--check')) {
     mkdirSync(dirname(abs), { recursive: true })
     writeFileSync(abs, bytes)
   }
-  console.log(`generated pstack/: ${skills.length} skills (${VENDORED.length} vendored), ${files.size} files, ${wrapped} adapter lines.`)
+  console.log(
+    `generated pstack/: ${skills.length} skills (${VENDORED.length} vendored), ${files.size} files, ` +
+      `${wrapped} adapter lines, ${covered} DSH coverage blocks, ${AGENT_DOCS.length} agent docs.`,
+  )
   console.log('next: git add pstack && git commit')
 }
